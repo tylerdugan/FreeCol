@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
+import java.io.IOException;
 
 
 /**
@@ -78,40 +79,45 @@ public class DesktopEntry {
                 FileReader fileReader = new FileReader(sourceFile);
                 BufferedReader bufferedReader = new BufferedReader(fileReader);
                 String line = bufferedReader.readLine();
-                while (line != null) {
-                    int index = line.indexOf('=');
-                    if (index >= 0) {
-                        String key = line.substring(0, index).trim();
-                        if (null != key) switch (key) {
-                            case GENERIC_NAME:
-                                result.append("GenericName");
-                                foundGenericName = true;
-                                break;
-                            case COMMENT:
-                                result.append("Comment");
-                                foundComment = true;
-                                break;
-                            default:
-                                line = bufferedReader.readLine();
-                                continue;
-                        }
-                        if (languageCode != null) {
-                            result.append("[" + languageCode + "]");
-                        }
-                        result.append("=");
-                        result.append(line.substring(index + 1).trim());
-                        result.append("\n");
-                        if (foundGenericName && foundComment) {
-                            break;
-                        }
-                    }
-                    line = bufferedReader.readLine();
-                }
+                messageType(result, languageCode, foundGenericName, foundComment, bufferedReader, line);
             }
             
             result.flush();
         }
 
     }
+
+	public static void messageType(FileWriter result, String languageCode, boolean foundGenericName,
+			boolean foundComment, BufferedReader bufferedReader, String line) throws IOException {
+		while (line != null) {
+		    int index = line.indexOf('=');
+		    if (index >= 0) {
+		        String key = line.substring(0, index).trim();
+		        if (null != key) switch (key) {
+		            case GENERIC_NAME:
+		                result.append("GenericName");
+		                foundGenericName = true;
+		                break;
+		            case COMMENT:
+		                result.append("Comment");
+		                foundComment = true;
+		                break;
+		            default:
+		                line = bufferedReader.readLine();
+		                continue;
+		        }
+		        if (languageCode != null) {
+		            result.append("[" + languageCode + "]");
+		        }
+		        result.append("=");
+		        result.append(line.substring(index + 1).trim());
+		        result.append("\n");
+		        if (foundGenericName && foundComment) {
+		            break;
+		        }
+		    }
+		    line = bufferedReader.readLine();
+		}
+	}
 }
 

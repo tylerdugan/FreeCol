@@ -177,28 +177,11 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
                 // custom
                 enable(customComponents, true);
             } else {
-                enable(customComponents, false);
-                flag = newFlag;
-                unionColor.setColor(flag.getUnionColor());
-                starColor.setColor(flag.getStarColor());
-                decorationColor.setColor(flag.getDecorationColor());
-                List<Color> colors = flag.getBackgroundColors();
-                for (int index = 0; index < backgroundColors.length; index++) {
-                    Color color = (index < colors.size())
-                        ? colors.get(index) : null;
-                    backgroundColors[index].setColor(color);
-                }
+                existingFlag(newFlag);
             }
         } else {
             if (newFlag == null) {
-                if (e.getSource() == decoration) {
-                    UnionPosition oldPosition = (UnionPosition) union.getSelectedItem();
-                    union.removeAllItems();
-                    for (UnionPosition position : newDecoration.unionPositions) {
-                        union.addItem(position);
-                    }
-                    union.setSelectedItem(oldPosition);
-                }
+                eDecoration(e, newDecoration);
                 flag = new Flag(newBackground, newDecoration, newPosition, newShape);
                 flag.setStripes(stripes.getSelectedIndex() + 1);
                 setColors();
@@ -210,6 +193,31 @@ public class FlagTest extends JFrame implements ActionListener, ItemListener {
 
         label.setIcon(new ImageIcon(flag.getImage()));
     }
+
+	public void existingFlag(Flag newFlag) {
+		enable(customComponents, false);
+		flag = newFlag;
+		unionColor.setColor(flag.getUnionColor());
+		starColor.setColor(flag.getStarColor());
+		decorationColor.setColor(flag.getDecorationColor());
+		List<Color> colors = flag.getBackgroundColors();
+		for (int index = 0; index < backgroundColors.length; index++) {
+		    Color color = (index < colors.size())
+		        ? colors.get(index) : null;
+		    backgroundColors[index].setColor(color);
+		}
+	}
+
+	public void eDecoration(ItemEvent e, Decoration newDecoration) {
+		if (e.getSource() == decoration) {
+		    UnionPosition oldPosition = (UnionPosition) union.getSelectedItem();
+		    union.removeAllItems();
+		    for (UnionPosition position : newDecoration.unionPositions) {
+		        union.addItem(position);
+		    }
+		    union.setSelectedItem(oldPosition);
+		}
+	}
 
     @Override
     public void actionPerformed(ActionEvent ae) {

@@ -95,36 +95,7 @@ public class RiverMaker {
             g.setPaint(texture);
             String name = getName(branches);
             int count = branchCount(branches);
-            for (int branch = 0; branch < branches.length; branch++) {
-                int size = branches[branch];
-                if (size > 0) {
-                    g.setStroke(size == 1 ? minor : major);
-                    int next = (branch + 1) % 4;
-                    int other = (branch + 2) % 4;
-                    Path2D.Float bend = new Path2D.Float();
-                    float px = (POINTS[branch].x + POINTS[other].x) / 2;
-                    float py = (POINTS[branch].y + POINTS[other].y) / 2;
-                    bend.moveTo(POINTS[branch].x, POINTS[branch].y);
-                    if (count == 1) {
-                        // single
-                        bend.lineTo(px, py);
-                        g.draw(bend);
-                        break;
-                    } else if (branches[other] > 0) {
-                        // or straight line
-                        bend.lineTo(px, py);
-                        bend.moveTo(POINTS[branch].x, POINTS[branch].y);
-                    }
-                    if (branches[next] > 0) {
-                        // bend, possibly around start
-                        bend.quadTo(CENTER.x, CENTER.y,
-                                    (POINTS[next].x + CENTER.x) / 2,
-                                    (POINTS[next].y + CENTER.y) / 2);
-                        bend.lineTo(POINTS[next].x, POINTS[next].y);
-                    }
-                    g.draw(bend);
-                }
-            }
+            branchChange(minor, major, branches, g, count);
 
             /*
             g.setStroke(stroke);
@@ -148,6 +119,50 @@ public class RiverMaker {
         }
 
     }
+
+
+	public static void branchChange(Stroke minor, Stroke major, int[] branches, Graphics2D g, int count) {
+		for (int branch = 0; branch < branches.length; branch++) {
+		    int size = branches[branch];
+		    if (size > 0) {
+		        g.setStroke(size == 1 ? minor : major);
+		        int next = (branch + 1) % 4;
+		        int other = (branch + 2) % 4;
+		        Path2D.Float bend = new Path2D.Float();
+		        float px = (POINTS[branch].x + POINTS[other].x) / 2;
+		        float py = (POINTS[branch].y + POINTS[other].y) / 2;
+		        bend.moveTo(POINTS[branch].x, POINTS[branch].y);
+		        if (count == 1) {
+		            // single
+		            bend.lineTo(px, py);
+		            g.draw(bend);
+		            break;
+		        } else if (branches[other] > 0) {
+		            otherBranch(branch, bend, px, py);
+		        }
+		        if (branches[next] > 0) {
+		            nextBranch(next, bend);
+		        }
+		        g.draw(bend);
+		    }
+		}
+	}
+
+
+	public static void otherBranch(int branch, Path2D.Float bend, float px, float py) {
+		// or straight line
+		bend.lineTo(px, py);
+		bend.moveTo(POINTS[branch].x, POINTS[branch].y);
+	}
+
+
+	public static void nextBranch(int next, Path2D.Float bend) {
+		// bend, possibly around start
+		bend.quadTo(CENTER.x, CENTER.y,
+		            (POINTS[next].x + CENTER.x) / 2,
+		            (POINTS[next].y + CENTER.y) / 2);
+		bend.lineTo(POINTS[next].x, POINTS[next].y);
+	}
 
 
     private static int[] nextBranch(int[] branches) {
