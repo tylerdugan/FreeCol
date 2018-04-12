@@ -1431,8 +1431,19 @@ public final class FreeCol {
         File userConfig = FreeColDirectories.getUserConfigDirectory();
         File userData = FreeColDirectories.getUserDataDirectory();
         File userMods = FreeColDirectories.getUserModsDirectory();
-        StringBuilder sb = new StringBuilder(256);
-        sb.append("Configuration:")
+        return stringBuild(autosave, clientOptionsFile, save, userConfig, userData, userMods);
+    }
+
+	public static StringBuilder stringBuild(File autosave, File clientOptionsFile, File save, File userConfig,
+			File userData, File userMods) {
+		StringBuilder sb = new StringBuilder(256);
+        stringSettings(autosave, clientOptionsFile, save, userConfig, userData, userMods, sb);
+        return sb;
+	}
+
+	public static void stringSettings(File autosave, File clientOptionsFile, File save, File userConfig, File userData,
+			File userMods, StringBuilder sb) {
+		StringBuilder append = sb.append("Configuration:")
             .append("\n  version     ").append(getRevision())
             .append("\n  java:       ").append(JAVA_VERSION)
             .append("\n  memory:     ").append(MEMORY_MAX)
@@ -1454,8 +1465,7 @@ public final class FreeCol {
             .append((save == null) ? "NONE" : save.getPath())
             .append("\n  userMods:   ")
             .append((userMods == null) ? "NONE" : userMods.getPath());
-        return sb;
-    }
+	}
 
 
     // The major final actions.
