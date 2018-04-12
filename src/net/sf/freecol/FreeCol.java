@@ -454,7 +454,88 @@ public final class FreeCol {
         final File dummy = new File("dummy");
         final String argDirectory = Messages.message("cli.arg.directory");
 
-        // Help options.
+        options(options, help, dummy, argDirectory);
+
+        CommandLineParser parser = new PosixParser();
+        boolean usageError = false;
+        try {
+            CommandLine line = parser.parse(options, args);
+            helpUsage(options, line);
+
+            defaults(line);
+
+            advantages(line);
+
+            checkSaveGame(line);
+
+            clientOptions(line);
+
+            debug(line);
+            debugRun(line);
+            debugStart(line);
+
+            difficulty(line);
+
+            europeans(line);
+
+            fast(line);
+
+            font(line);
+
+            fullScreen(line);
+
+            guiScale(line);
+
+            if (line.hasOption("headless")) {
+                headless = true;
+            }
+
+            loadSaveGame(line);
+
+            logCheck(line);
+
+            name(line);
+
+            compCheck(line);
+
+            serverCheck(line);
+
+            serverInfo(line);
+
+            seed(line);
+
+            splash(line);
+
+            if (line.hasOption("tc")) {
+                setTC(line.getOptionValue("tc")); // Failure is deferred.
+            }
+
+            timeout(line);
+
+            userDirectory(line);
+
+            version(line);
+
+            windowed(line);
+
+        } catch (ParseException e) {
+            System.err.println("\n" + e.getMessage() + "\n");
+            usageError = true;
+        }
+        if (usageError) printUsage(options, 1);
+    }
+
+	public static void defaults(CommandLine line) {
+		if (line.hasOption("default-locale")) {
+		    ; // Do nothing, already handled in main().
+		}
+		if (line.hasOption("freecol-data")) {
+		    ; // Do nothing, already handled in main().
+		}
+	}
+
+	public static void options(Options options, final String help, final File dummy, final String argDirectory) {
+		// Help options.
         options.addOption(OptionBuilder.withLongOpt("usage")
                           .withDescription(help)
                           .create());
@@ -638,245 +719,276 @@ public final class FreeCol {
                           .withArgName(Messages.message("cli.arg.dimensions"))
                           .hasOptionalArg()
                           .create());
+	}
 
-        CommandLineParser parser = new PosixParser();
-        boolean usageError = false;
-        try {
-            CommandLine line = parser.parse(options, args);
-            if (line.hasOption("help") || line.hasOption("usage")) {
-                printUsage(options, 0);
-            }
+	public static void seed(CommandLine line) {
+		if (line.hasOption("seed")) {
+		    FreeColSeed.setFreeColSeed(line.getOptionValue("seed"));
+		}
+	}
 
-            if (line.hasOption("default-locale")) {
-                ; // Do nothing, already handled in main().
-            }
-            if (line.hasOption("freecol-data")) {
-                ; // Do nothing, already handled in main().
-            }
+	public static void serverCheck(CommandLine line) {
+		if (line.hasOption("private")) {
+		    publicServer = false;
+		}
+	}
 
-            if (line.hasOption("advantages")) {
-                String arg = line.getOptionValue("advantages");
-                Advantages a = selectAdvantages(arg);
-                if (a == null) {
-                    fatal(StringTemplate.template("cli.error.advantages")
-                        .addName("%advantages%", getValidAdvantages())
-                        .addName("%arg%", arg));
-                }
-            }
+	public static void name(CommandLine line) {
+		if (line.hasOption("name")) {
+		    setName(line.getOptionValue("name"));
+		}
+	}
 
-            if (line.hasOption("check-savegame")) {
-                String arg = line.getOptionValue("check-savegame");
-                if (!FreeColDirectories.setSavegameFile(arg)) {
-                    fatal(StringTemplate.template("cli.err.save")
-                        .addName("%string%", arg));
-                }
-                checkIntegrity = true;
-                standAloneServer = true;
-            }
+	public static void helpUsage(Options options, CommandLine line) {
+		if (line.hasOption("help") || line.hasOption("usage")) {
+		    printUsage(options, 0);
+		}
+	}
 
-            if (line.hasOption("clientOptions")) {
-                String fileName = line.getOptionValue("clientOptions");
-                if (!FreeColDirectories.setClientOptionsFile(fileName)) {
-                    // Not fatal.
-                    gripe(StringTemplate.template("cli.error.clientOptions")
-                        .addName("%string%", fileName));
-                }
-            }
+	public static void compCheck(CommandLine line) {
+		if (line.hasOption("no-intro")) {
+		    introVideo = false;
+		}
+		if (line.hasOption("no-java-check")) {
+		    javaCheck = false;
+		}
+		if (line.hasOption("no-memory-check")) {
+		    memoryCheck = false;
+		}
+		if (line.hasOption("no-sound")) {
+		    sound = false;
+		}
+		if (line.hasOption("no-splash")) {
+		    splashStream = null;
+		}
+	}
 
-            if (line.hasOption("debug")) {
-                // If the optional argument is supplied use limited mode.
-                String arg = line.getOptionValue("debug");
-                if (arg == null || arg.isEmpty()) {
-                    // Let empty argument default to menus functionality.
-                    arg = FreeColDebugger.DebugMode.MENUS.toString();
-                }
-                if (!FreeColDebugger.setDebugModes(arg)) { // Not fatal.
-                    gripe(StringTemplate.template("cli.error.debug")
-                        .addName("%modes%", FreeColDebugger.getDebugModes()));
-                }
-                // user set log level has precedence
-                if (!line.hasOption("log-level")) logLevel = Level.FINEST;
-            }
-            if (line.hasOption("debug-run")) {
-                FreeColDebugger.enableDebugMode(FreeColDebugger.DebugMode.MENUS);
-                FreeColDebugger.configureDebugRun(line.getOptionValue("debug-run"));
-            }
-            if (line.hasOption("debug-start")) {
-                debugStart = true;
-                FreeColDebugger.enableDebugMode(FreeColDebugger.DebugMode.MENUS);
-            }
+	public static void splash(CommandLine line) {
+		if (line.hasOption("splash")) {
+		    String splash = line.getOptionValue("splash");
+		    try {
+		        FileInputStream fis = new FileInputStream(splash);
+		        splashStream = fis;
+		    } catch (FileNotFoundException fnfe) {
+		        gripe(StringTemplate.template("cli.error.splash")
+		            .addName("%name%", splash));
+		    }
+		}
+	}
 
-            if (line.hasOption("difficulty")) {
-                String arg = line.getOptionValue("difficulty");
-                String difficulty = selectDifficulty(arg);
-                if (difficulty == null) {
-                    fatal(StringTemplate.template("cli.error.difficulties")
-                        .addName("%difficulties%", getValidDifficulties())
-                        .addName("%arg%", arg));
-                }
-            }
+	public static void timeout(CommandLine line) {
+		if (line.hasOption("timeout")) {
+		    String arg = line.getOptionValue("timeout");
+		    if (!setTimeout(arg)) { // Not fatal
+		        gripe(StringTemplate.template("cli.error.timeout")
+		            .addName("%string%", arg)
+		            .addName("%minimum%", Integer.toString(TIMEOUT_MIN)));
+		    }
+		}
+	}
 
-            if (line.hasOption("europeans")) {
-                int e = selectEuropeanCount(line.getOptionValue("europeans"));
-                if (e < 0) {
-                    gripe(StringTemplate.template("cli.error.europeans")
-                        .addAmount("%min%", EUROPEANS_MIN));
-                }
-            }
+	public static void windowed(CommandLine line) {
+		if (line.hasOption("windowed")) {
+		    String arg = line.getOptionValue("windowed");
+		    setWindowSize(arg); // Does not fail
+		}
+	}
 
-            if (line.hasOption("fast")) {
-                fastStart = true;
-                introVideo = false;
-            }
+	public static void version(CommandLine line) {
+		if (line.hasOption("version")) {
+		    System.out.println("FreeCol " + getVersion());
+		    System.exit(0);
+		}
+	}
 
-            if (line.hasOption("font")) {
-                fontName = line.getOptionValue("font");
-            }
+	public static void userDirectory(CommandLine line) {
+		userCache(line);
 
-            if (line.hasOption("full-screen")) {
-                windowSize = null;
-            }
+		if (line.hasOption("user-config-directory")) {
+		    String arg = line.getOptionValue("user-config-directory");
+		    String errMsg = FreeColDirectories.setUserConfigDirectory(arg);
+		    if (errMsg != null) { // Not fatal.
+		        gripe(StringTemplate.template(errMsg)
+		            .addName("%string%", arg));
+		    }
+		}
 
-            if (line.hasOption("gui-scale")) {
-                String arg = line.getOptionValue("gui-scale");
-                if(!setGUIScale(arg)) {
-                    gripe(StringTemplate.template("cli.error.gui-scale")
-                        .addName("%scales%", getValidGUIScales())
-                        .addName("%arg%", arg));
-                }
-            }
+		if (line.hasOption("user-data-directory")) {
+		    String arg = line.getOptionValue("user-data-directory");
+		    String errMsg = FreeColDirectories.setUserDataDirectory(arg);
+		    if (errMsg != null) { // Fatal, unable to save.
+		        fatal(StringTemplate.template(errMsg)
+		            .addName("%string%", arg));
+		    }
+		}
+	}
 
-            if (line.hasOption("headless")) {
-                headless = true;
-            }
+	public static void userCache(CommandLine line) {
+		if (line.hasOption("user-cache-directory")) {
+		    String arg = line.getOptionValue("user-cache-directory");
+		    String errMsg = FreeColDirectories.setUserCacheDirectory(arg);
+		    if (errMsg != null) { // Not fatal.
+		        gripe(StringTemplate.template(errMsg)
+		            .addName("%string%", arg));
+		    }
+		}
+	}
 
-            if (line.hasOption("load-savegame")) {
-                String arg = line.getOptionValue("load-savegame");
-                if (!FreeColDirectories.setSavegameFile(arg)) {
-                    fatal(StringTemplate.template("cli.error.save")
-                        .addName("%string%", arg));
-                }
-            }
+	public static void serverInfo(CommandLine line) {
+		if (line.hasOption("server")) {
+		    standAloneServer = true;
+		}
+		if (line.hasOption("server-name")) {
+		    serverName = line.getOptionValue("server-name");
+		}
+		if (line.hasOption("server-port")) {
+		    String arg = line.getOptionValue("server-port");
+		    if (!setServerPort(arg)) {
+		        fatal(StringTemplate.template("cli.error.serverPort")
+		            .addName("%string%", arg));
+		    }
+		}
+	}
 
-            if (line.hasOption("log-console")) {
-                consoleLogging = true;
-            }
-            if (line.hasOption("log-file")) {
-                FreeColDirectories.setLogFilePath(line.getOptionValue("log-file"));
-            }
-            if (line.hasOption("log-level")) {
-                setLogLevel(line.getOptionValue("log-level"));
-            }
+	public static void logCheck(CommandLine line) {
+		if (line.hasOption("log-console")) {
+		    consoleLogging = true;
+		}
+		if (line.hasOption("log-file")) {
+		    FreeColDirectories.setLogFilePath(line.getOptionValue("log-file"));
+		}
+		if (line.hasOption("log-level")) {
+		    setLogLevel(line.getOptionValue("log-level"));
+		}
+	}
 
-            if (line.hasOption("name")) {
-                setName(line.getOptionValue("name"));
-            }
+	public static void loadSaveGame(CommandLine line) {
+		if (line.hasOption("load-savegame")) {
+		    String arg = line.getOptionValue("load-savegame");
+		    if (!FreeColDirectories.setSavegameFile(arg)) {
+		        fatal(StringTemplate.template("cli.error.save")
+		            .addName("%string%", arg));
+		    }
+		}
+	}
 
-            if (line.hasOption("no-intro")) {
-                introVideo = false;
-            }
-            if (line.hasOption("no-java-check")) {
-                javaCheck = false;
-            }
-            if (line.hasOption("no-memory-check")) {
-                memoryCheck = false;
-            }
-            if (line.hasOption("no-sound")) {
-                sound = false;
-            }
-            if (line.hasOption("no-splash")) {
-                splashStream = null;
-            }
+	public static void guiScale(CommandLine line) {
+		if (line.hasOption("gui-scale")) {
+		    String arg = line.getOptionValue("gui-scale");
+		    if(!setGUIScale(arg)) {
+		        gripe(StringTemplate.template("cli.error.gui-scale")
+		            .addName("%scales%", getValidGUIScales())
+		            .addName("%arg%", arg));
+		    }
+		}
+	}
 
-            if (line.hasOption("private")) {
-                publicServer = false;
-            }
+	public static void fullScreen(CommandLine line) {
+		if (line.hasOption("full-screen")) {
+		    windowSize = null;
+		}
+	}
 
-            if (line.hasOption("server")) {
-                standAloneServer = true;
-            }
-            if (line.hasOption("server-name")) {
-                serverName = line.getOptionValue("server-name");
-            }
-            if (line.hasOption("server-port")) {
-                String arg = line.getOptionValue("server-port");
-                if (!setServerPort(arg)) {
-                    fatal(StringTemplate.template("cli.error.serverPort")
-                        .addName("%string%", arg));
-                }
-            }
+	public static void font(CommandLine line) {
+		if (line.hasOption("font")) {
+		    fontName = line.getOptionValue("font");
+		}
+	}
 
-            if (line.hasOption("seed")) {
-                FreeColSeed.setFreeColSeed(line.getOptionValue("seed"));
-            }
+	public static void fast(CommandLine line) {
+		if (line.hasOption("fast")) {
+		    fastStart = true;
+		    introVideo = false;
+		}
+	}
 
-            if (line.hasOption("splash")) {
-                String splash = line.getOptionValue("splash");
-                try {
-                    FileInputStream fis = new FileInputStream(splash);
-                    splashStream = fis;
-                } catch (FileNotFoundException fnfe) {
-                    gripe(StringTemplate.template("cli.error.splash")
-                        .addName("%name%", splash));
-                }
-            }
+	public static void europeans(CommandLine line) {
+		if (line.hasOption("europeans")) {
+		    int e = selectEuropeanCount(line.getOptionValue("europeans"));
+		    if (e < 0) {
+		        gripe(StringTemplate.template("cli.error.europeans")
+		            .addAmount("%min%", EUROPEANS_MIN));
+		    }
+		}
+	}
 
-            if (line.hasOption("tc")) {
-                setTC(line.getOptionValue("tc")); // Failure is deferred.
-            }
+	public static void difficulty(CommandLine line) {
+		if (line.hasOption("difficulty")) {
+		    String arg = line.getOptionValue("difficulty");
+		    String difficulty = selectDifficulty(arg);
+		    if (difficulty == null) {
+		        fatal(StringTemplate.template("cli.error.difficulties")
+		            .addName("%difficulties%", getValidDifficulties())
+		            .addName("%arg%", arg));
+		    }
+		}
+	}
 
-            if (line.hasOption("timeout")) {
-                String arg = line.getOptionValue("timeout");
-                if (!setTimeout(arg)) { // Not fatal
-                    gripe(StringTemplate.template("cli.error.timeout")
-                        .addName("%string%", arg)
-                        .addName("%minimum%", Integer.toString(TIMEOUT_MIN)));
-                }
-            }
+	public static void debugStart(CommandLine line) {
+		if (line.hasOption("debug-start")) {
+		    debugStart = true;
+		    FreeColDebugger.enableDebugMode(FreeColDebugger.DebugMode.MENUS);
+		}
+	}
 
-            if (line.hasOption("user-cache-directory")) {
-                String arg = line.getOptionValue("user-cache-directory");
-                String errMsg = FreeColDirectories.setUserCacheDirectory(arg);
-                if (errMsg != null) { // Not fatal.
-                    gripe(StringTemplate.template(errMsg)
-                        .addName("%string%", arg));
-                }
-            }
+	public static void debugRun(CommandLine line) {
+		if (line.hasOption("debug-run")) {
+		    FreeColDebugger.enableDebugMode(FreeColDebugger.DebugMode.MENUS);
+		    FreeColDebugger.configureDebugRun(line.getOptionValue("debug-run"));
+		}
+	}
 
-            if (line.hasOption("user-config-directory")) {
-                String arg = line.getOptionValue("user-config-directory");
-                String errMsg = FreeColDirectories.setUserConfigDirectory(arg);
-                if (errMsg != null) { // Not fatal.
-                    gripe(StringTemplate.template(errMsg)
-                        .addName("%string%", arg));
-                }
-            }
+	public static void debug(CommandLine line) {
+		if (line.hasOption("debug")) {
+		    // If the optional argument is supplied use limited mode.
+		    String arg = line.getOptionValue("debug");
+		    if (arg == null || arg.isEmpty()) {
+		        // Let empty argument default to menus functionality.
+		        arg = FreeColDebugger.DebugMode.MENUS.toString();
+		    }
+		    if (!FreeColDebugger.setDebugModes(arg)) { // Not fatal.
+		        gripe(StringTemplate.template("cli.error.debug")
+		            .addName("%modes%", FreeColDebugger.getDebugModes()));
+		    }
+		    // user set log level has precedence
+		    if (!line.hasOption("log-level")) logLevel = Level.FINEST;
+		}
+	}
 
-            if (line.hasOption("user-data-directory")) {
-                String arg = line.getOptionValue("user-data-directory");
-                String errMsg = FreeColDirectories.setUserDataDirectory(arg);
-                if (errMsg != null) { // Fatal, unable to save.
-                    fatal(StringTemplate.template(errMsg)
-                        .addName("%string%", arg));
-                }
-            }
+	public static void clientOptions(CommandLine line) {
+		if (line.hasOption("clientOptions")) {
+		    String fileName = line.getOptionValue("clientOptions");
+		    if (!FreeColDirectories.setClientOptionsFile(fileName)) {
+		        // Not fatal.
+		        gripe(StringTemplate.template("cli.error.clientOptions")
+		            .addName("%string%", fileName));
+		    }
+		}
+	}
 
-            if (line.hasOption("version")) {
-                System.out.println("FreeCol " + getVersion());
-                System.exit(0);
-            }
+	public static void checkSaveGame(CommandLine line) {
+		if (line.hasOption("check-savegame")) {
+		    String arg = line.getOptionValue("check-savegame");
+		    if (!FreeColDirectories.setSavegameFile(arg)) {
+		        fatal(StringTemplate.template("cli.err.save")
+		            .addName("%string%", arg));
+		    }
+		    checkIntegrity = true;
+		    standAloneServer = true;
+		}
+	}
 
-            if (line.hasOption("windowed")) {
-                String arg = line.getOptionValue("windowed");
-                setWindowSize(arg); // Does not fail
-            }
-
-        } catch (ParseException e) {
-            System.err.println("\n" + e.getMessage() + "\n");
-            usageError = true;
-        }
-        if (usageError) printUsage(options, 1);
-    }
+	public static void advantages(CommandLine line) {
+		if (line.hasOption("advantages")) {
+		    String arg = line.getOptionValue("advantages");
+		    Advantages a = selectAdvantages(arg);
+		    if (a == null) {
+		        fatal(StringTemplate.template("cli.error.advantages")
+		            .addName("%advantages%", getValidAdvantages())
+		            .addName("%arg%", arg));
+		    }
+		}
+	}
 
     /**
      * Prints the usage message and exits.
@@ -1388,18 +1500,10 @@ public final class FreeCol {
                     = new FreeColSavegameFile(saveGame);
                 freeColServer = new FreeColServer(fis, (Specification)null,
                                                   serverPort, serverName);
-                if (checkIntegrity) {
-                    boolean integrityOK = freeColServer.getIntegrity() > 0;
-                    gripe((integrityOK)
-                        ? "cli.check-savegame.success"
-                        : "cli.check-savegame.failure");
-                    System.exit((integrityOK) ? 0 : 2);
-                }
+                integrityCheck(freeColServer);
             } catch (Exception e) {
-                if (checkIntegrity) gripe("cli.check-savegame.failure");
-                fatal(Messages.message(badLoad(saveGame))
-                    + ": " + e.getMessage());
-                return;
+                integrityCheck2(saveGame, e);
+				return;
             }
         } else {
             Specification spec = FreeCol.getTCSpecification();
@@ -1411,10 +1515,7 @@ public final class FreeCol {
                     + ": " + e.getMessage());
                 return;
             }
-            if (publicServer && freeColServer != null
-                && !freeColServer.getPublicServer()) {
-                gripe(Messages.message("server.noRouteToServer"));
-            }
+            publicServer(freeColServer);
         }
 
         String quit = FreeCol.SERVER_THREAD + "Quit Game";
@@ -1425,4 +1526,28 @@ public final class FreeCol {
                 }
             });
     }
+
+	public static void publicServer(final FreeColServer freeColServer) {
+		if (publicServer && freeColServer != null
+		    && !freeColServer.getPublicServer()) {
+		    gripe(Messages.message("server.noRouteToServer"));
+		}
+	}
+
+	public static void integrityCheck2(File saveGame, Exception e) {
+		if (checkIntegrity) gripe("cli.check-savegame.failure");
+		fatal(Messages.message(badLoad(saveGame))
+		    + ": " + e.getMessage());
+		return;
+	}
+
+	public static void integrityCheck(final FreeColServer freeColServer) {
+		if (checkIntegrity) {
+		    boolean integrityOK = freeColServer.getIntegrity() > 0;
+		    gripe((integrityOK)
+		        ? "cli.check-savegame.success"
+		        : "cli.check-savegame.failure");
+		    System.exit((integrityOK) ? 0 : 2);
+		}
+	}
 }
