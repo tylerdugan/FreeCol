@@ -194,7 +194,71 @@ public final class FreeCol {
      */
     public static void main(String[] args) {
         freeColRevision = FREECOL_VERSION;
-        JarURLConnection juc;
+        loader();
+
+        // Java bug #7075600 causes BR#2554.  The workaround is to set
+        // the following property.  Remove if/when they fix Java.
+        System.setProperty("java.util.Arrays.useLegacyMergeSort", "true");
+
+        // We can not even emit localized error messages until we find
+        // the data directory, which might have been specified on the
+        // command line.
+        String dataDirectoryArg = findArg("--freecol-data", args);
+        String err = FreeColDirectories.setDataDirectory(dataDirectoryArg);
+        if (err != null) fatal(err); // This must not fail.
+
+        // Now we have the data directory, establish the base locale.
+        // Beware, the locale may change!
+        String localeArg = findArg("--default-locale", args);
+        localeArg = dataDirectory(localeArg);
+        Messages.loadMessageBundle(locale);
+
+        // Now that we can emit error messages, parse the other
+        // command line arguments.
+        handleArgs(args);
+
+        // Do the potentially fatal system checks as early as possible.
+        systemCheck1();
+        systemCheck2();
+
+        // Having parsed the command line args, we know where the user
+        // directories should be, so we can set up the rest of the
+        // file/directory structure.
+        String userMsg = FreeColDirectories.setUserDirectories();
+
+        // Now we have the log file path, start logging.
+        final Logger baseLogger = Logger.getLogger("");
+        final Handler[] handlers = baseLogger.getHandlers();
+        logFileHandler(baseLogger, handlers);
+
+        // Now we can find the client options, allow the options
+        // setting to override the locale, if no command line option
+        // had been specified.
+        // We have users whose machines default to Finnish but play
+        // FreeCol in English.
+        // If the user has selected automatic language selection, do
+        // nothing, since we have already set up the default locale.
+        extracted(localeArg);
+
+        // Now we have the user mods directory and the locale is now
+        // stable, load the mods and their messages.
+        Mods.loadMods();
+        Messages.loadModMessageBundle(locale);
+
+        // Report on where we are.
+        if (userMsg != null) logger.info(Messages.message(userMsg));
+        logger.info(getConfiguration().toString());
+
+        // Ready to specialize into client or server.
+        if (standAloneServer) {
+            startServer();
+        } else {
+            startClient(userMsg);
+        }
+    }
+
+	public static void loader() {
+		JarURLConnection juc;
         try {
             juc = getJarURLConnection(FreeCol.class);
         } catch (IOException ioe) {
@@ -219,55 +283,24 @@ public final class FreeCol {
                     + e.getMessage());
             }
         }
+	}
 
-        // Java bug #7075600 causes BR#2554.  The workaround is to set
-        // the following property.  Remove if/when they fix Java.
-        System.setProperty("java.util.Arrays.useLegacyMergeSort", "true");
-
-        // We can not even emit localized error messages until we find
-        // the data directory, which might have been specified on the
-        // command line.
-        String dataDirectoryArg = findArg("--freecol-data", args);
-        String err = FreeColDirectories.setDataDirectory(dataDirectoryArg);
-        if (err != null) fatal(err); // This must not fail.
-
-        // Now we have the data directory, establish the base locale.
-        // Beware, the locale may change!
-        String localeArg = findArg("--default-locale", args);
-        if (localeArg == null) {
-            locale = Locale.getDefault();
-        } else {
-            int index = localeArg.indexOf('.'); // Strip encoding if present
-            if (index > 0) localeArg = localeArg.substring(0, index);
-            locale = Messages.getLocale(localeArg);
+	public static void extracted(String localeArg) {
+		if (localeArg == null) {
+            String clientLanguage = ClientOptions.getLanguageOption();
+            Locale clientLocale;
+            if (clientLanguage != null
+                && !Messages.AUTOMATIC.equalsIgnoreCase(clientLanguage)
+                && (clientLocale = Messages.getLocale(clientLanguage)) != locale) {
+                locale = clientLocale;
+                Messages.loadMessageBundle(locale);
+                logger.info("Loaded messages for " + locale);
+            }
         }
-        Messages.loadMessageBundle(locale);
+	}
 
-        // Now that we can emit error messages, parse the other
-        // command line arguments.
-        handleArgs(args);
-
-        // Do the potentially fatal system checks as early as possible.
-        if (javaCheck && JAVA_VERSION_MIN.compareTo(JAVA_VERSION) > 0) {
-            fatal(StringTemplate.template("main.javaVersion")
-                .addName("%version%", JAVA_VERSION)
-                .addName("%minVersion%", JAVA_VERSION_MIN));
-        }
-        if (memoryCheck && MEMORY_MAX < MEMORY_MIN * 1000000) {
-            fatal(StringTemplate.template("main.memory")
-                .addAmount("%memory%", MEMORY_MAX)
-                .addAmount("%minMemory%", MEMORY_MIN));
-        }
-
-        // Having parsed the command line args, we know where the user
-        // directories should be, so we can set up the rest of the
-        // file/directory structure.
-        String userMsg = FreeColDirectories.setUserDirectories();
-
-        // Now we have the log file path, start logging.
-        final Logger baseLogger = Logger.getLogger("");
-        final Handler[] handlers = baseLogger.getHandlers();
-        for (Handler handler : handlers) {
+	public static void logFileHandler(final Logger baseLogger, final Handler[] handlers) {
+		for (Handler handler : handlers) {
             baseLogger.removeHandler(handler);
         }
         String logFile = FreeColDirectories.getLogFilePath();
@@ -283,42 +316,34 @@ public final class FreeCol {
         Thread.setDefaultUncaughtExceptionHandler((Thread thread, Throwable e) -> {
                 baseLogger.log(Level.WARNING, "Uncaught exception from thread: " + thread, e);
             });
+	}
 
-        // Now we can find the client options, allow the options
-        // setting to override the locale, if no command line option
-        // had been specified.
-        // We have users whose machines default to Finnish but play
-        // FreeCol in English.
-        // If the user has selected automatic language selection, do
-        // nothing, since we have already set up the default locale.
-        if (localeArg == null) {
-            String clientLanguage = ClientOptions.getLanguageOption();
-            Locale clientLocale;
-            if (clientLanguage != null
-                && !Messages.AUTOMATIC.equalsIgnoreCase(clientLanguage)
-                && (clientLocale = Messages.getLocale(clientLanguage)) != locale) {
-                locale = clientLocale;
-                Messages.loadMessageBundle(locale);
-                logger.info("Loaded messages for " + locale);
-            }
+	public static void systemCheck2() {
+		if (memoryCheck && MEMORY_MAX < MEMORY_MIN * 1000000) {
+            fatal(StringTemplate.template("main.memory")
+                .addAmount("%memory%", MEMORY_MAX)
+                .addAmount("%minMemory%", MEMORY_MIN));
         }
+	}
 
-        // Now we have the user mods directory and the locale is now
-        // stable, load the mods and their messages.
-        Mods.loadMods();
-        Messages.loadModMessageBundle(locale);
+	public static void systemCheck1() {
+		if (javaCheck && JAVA_VERSION_MIN.compareTo(JAVA_VERSION) > 0) {
+            fatal(StringTemplate.template("main.javaVersion")
+                .addName("%version%", JAVA_VERSION)
+                .addName("%minVersion%", JAVA_VERSION_MIN));
+        }
+	}
 
-        // Report on where we are.
-        if (userMsg != null) logger.info(Messages.message(userMsg));
-        logger.info(getConfiguration().toString());
-
-        // Ready to specialize into client or server.
-        if (standAloneServer) {
-            startServer();
+	public static String dataDirectory(String localeArg) {
+		if (localeArg == null) {
+            locale = Locale.getDefault();
         } else {
-            startClient(userMsg);
+            int index = localeArg.indexOf('.'); // Strip encoding if present
+            if (index > 0) localeArg = localeArg.substring(0, index);
+            locale = Messages.getLocale(localeArg);
         }
-    }
+		return localeArg;
+	}
 
 
     /**
