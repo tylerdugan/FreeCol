@@ -263,10 +263,7 @@ public final class ConnectController {
 
         String message = null;
         try {
-            if (!freeColClient.askServer().connect(FreeCol.CLIENT_THREAD + user,
-                    host, port, freeColClient.getPreGameInputHandler())) {
-                message = "repeated failure";
-            }
+            message = repeatfail(user, host, port, message);
         } catch (Exception e) {
             message = e.getMessage();
         }
@@ -302,34 +299,53 @@ public final class ConnectController {
             + "/" + player.getId());
 
         // Reconnect
-        if (msg.getStartGame()) {
+        reconnect(msg, player);
+
+        // All done.
+        freeColClient.setLoggedIn(true);
+        return true;
+    }
+
+
+	public String repeatfail(String user, String host, int port, String message) throws IOException {
+		if (!freeColClient.askServer().connect(FreeCol.CLIENT_THREAD + user,
+		        host, port, freeColClient.getPreGameInputHandler())) {
+		    message = "repeated failure";
+		}
+		return message;
+	}
+
+
+	public void reconnect(LoginMessage msg, Player player) {
+		if (msg.getStartGame()) {
             Tile entryTile = (player.getEntryLocation() == null) ? null
                 : player.getEntryLocation().getTile();
             freeColClient.setSinglePlayer(msg.isSinglePlayer());
             boolean play = freeColClient.getPreGameController().startGame();
             if (play) {
                 gui.setActiveUnit(null);
-                if (msg.isCurrentPlayer()) {
-                    freeColClient.getInGameController()
-                        .setCurrentPlayer(player);
-                    Unit activeUnit = msg.getActiveUnit();
-                    if (activeUnit != null) {
-                        activeUnit.getOwner().resetIterators();
-                        activeUnit.getOwner().setNextActiveUnit(activeUnit);
-                        gui.setActiveUnit(activeUnit);
-                    } else {
-                        gui.setSelectedTile(entryTile);
-                    }
-                } else {
-                    gui.setSelectedTile(entryTile);
-                }
+                currentPlayer(msg, player, entryTile);
             }
         }
+	}
 
-        // All done.
-        freeColClient.setLoggedIn(true);
-        return true;
-    }
+
+	public void currentPlayer(LoginMessage msg, Player player, Tile entryTile) {
+		if (msg.isCurrentPlayer()) {
+		    freeColClient.getInGameController()
+		        .setCurrentPlayer(player);
+		    Unit activeUnit = msg.getActiveUnit();
+		    if (activeUnit != null) {
+		        activeUnit.getOwner().resetIterators();
+		        activeUnit.getOwner().setNextActiveUnit(activeUnit);
+		        gui.setActiveUnit(activeUnit);
+		    } else {
+		        gui.setSelectedTile(entryTile);
+		    }
+		} else {
+		    gui.setSelectedTile(entryTile);
+		}
+	}
 
     //
     // There are several ways to start a game.
@@ -417,12 +433,7 @@ public final class ConnectController {
             }
 
             List<ChoiceItem<String>> choices = new ArrayList<>();
-            for (String n : names) {
-                String nam = Messages.message(StringTemplate
-                    .template("countryName")
-                    .add("%nation%", Messages.nameKey(n)));
-                choices.add(new ChoiceItem<>(nam, n));
-            }
+            chooseNames(names, choices);
             String choice = gui.getChoice(null,
                 Messages.message("client.choicePlayer"),
                 "cancel", choices);
@@ -441,6 +452,16 @@ public final class ConnectController {
         }
         return true;
     }
+
+
+	public void chooseNames(List<String> names, List<ChoiceItem<String>> choices) {
+		for (String n : names) {
+		    String nam = Messages.message(StringTemplate
+		        .template("countryName")
+		        .add("%nation%", Messages.nameKey(n)));
+		    choices.add(new ChoiceItem<>(nam, n));
+		}
+	}
 
     /**
      * Starts a new single player game by connecting to the server.
@@ -476,7 +497,12 @@ public final class ConnectController {
                    freeColServer.getPort())) return false;
 
         final ClientOptions co = freeColClient.getClientOptions();
-        if (co.getBoolean(ClientOptions.AUTOSAVE_DELETE)) {
+        return clientOptions(skip, co);
+    }
+
+
+	public boolean clientOptions(boolean skip, final ClientOptions co) {
+		if (co.getBoolean(ClientOptions.AUTOSAVE_DELETE)) {
             FreeColServer.removeAutosaves(co.getText(ClientOptions.AUTO_SAVE_PREFIX));
         }
         freeColClient.getPreGameController().setReady(true);
@@ -487,7 +513,7 @@ public final class ConnectController {
                                    freeColClient.getMyPlayer(), true);
         }
         return true;
-    }
+	}
 
     /**
      * Loads and starts a game from the given file.
@@ -516,12 +542,16 @@ public final class ConnectController {
             @Override
             public void run() {
                 gui.closeMenus();
-                if (this.template != null) {
+                guiTemplate();
+            }
+
+			public void guiTemplate() {
+				if (this.template != null) {
                     gui.showErrorMessage(template);
                 } else {
                     gui.showErrorMessage(message);
                 }
-            }
+			}
         }
 
         final ClientOptions options = freeColClient.getClientOptions();
@@ -640,20 +670,25 @@ public final class ConnectController {
             }                
             if (err != null) {
                 // If this is a debug run, fail hard.
-                if (freeColClient.isHeadless()
-                    || FreeColDebugger.getDebugRunTurns() >= 0) {
-                    FreeCol.fatal(Messages.message(err));
-                }
-                SwingUtilities.invokeLater(() -> {
-                        gui.closeMainPanel();
-                        gui.showMainPanel(null);
-                    });
+                debugFail(err);
                 SwingUtilities.invokeLater(new ErrorJob(err));
             }
         };
         freeColClient.setWork(loadGameJob);
         return true;
     }
+
+
+	public void debugFail(StringTemplate err) {
+		if (freeColClient.isHeadless()
+		    || FreeColDebugger.getDebugRunTurns() >= 0) {
+		    FreeCol.fatal(Messages.message(err));
+		}
+		SwingUtilities.invokeLater(() -> {
+		        gui.closeMainPanel();
+		        gui.showMainPanel(null);
+		    });
+	}
 
     /**
      * Reconnects to the server.
