@@ -107,7 +107,23 @@ public class AbstractCanvasListener {
     private void scroll(int x, int y, int scrollSpace) {
         Direction direction;
         Dimension size = canvas.getSize();
-        if (x < scrollSpace && y < scrollSpace) { // Upper-Left
+        direction = scrollDirection(x, y, scrollSpace, size);
+
+        if (direction == null) {
+            stopScrollIfScrollIsActive();
+        } else if (scrollThread == null || scrollThread.isInterrupted()) {
+            scrollThread = new ScrollThread(canvas);
+            scrollThread.setDirection(direction);
+            scrollThread.start();
+        } else {
+            scrollThread.setDirection(direction);
+        }
+    }
+
+
+	public Direction scrollDirection(int x, int y, int scrollSpace, Dimension size) {
+		Direction direction;
+		if (x < scrollSpace && y < scrollSpace) { // Upper-Left
             direction = Direction.NW;
         } else if (x >= size.width - scrollSpace
             && y < scrollSpace) { // Upper-Right
@@ -129,15 +145,6 @@ public class AbstractCanvasListener {
         } else {
             direction = null;
         }
-
-        if (direction == null) {
-            stopScrollIfScrollIsActive();
-        } else if (scrollThread == null || scrollThread.isInterrupted()) {
-            scrollThread = new ScrollThread(canvas);
-            scrollThread.setDirection(direction);
-            scrollThread.start();
-        } else {
-            scrollThread.setDirection(direction);
-        }
-    }
+		return direction;
+	}
 }

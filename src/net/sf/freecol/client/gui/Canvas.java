@@ -513,16 +513,7 @@ public final class Canvas extends JDesktopPane {
             c.setBorder(null);
         }
 
-        if (comp.getBorder() != null) {
-            if (comp.getBorder() instanceof EmptyBorder) {
-                f.setBorder(Utility.blankBorder(10, 10, 10, 10));
-            } else {
-                f.setBorder(comp.getBorder());
-                comp.setBorder(Utility.blankBorder(5, 5, 5, 5));
-            }
-        } else {
-            f.setBorder(null);
-        }
+        nullBorder(comp, f);
 
         final FrameMotionListener fml = new FrameMotionListener(f);
         comp.addMouseMotionListener(fml);
@@ -561,6 +552,19 @@ public final class Canvas extends JDesktopPane {
 
         return f;
     }
+
+	public void nullBorder(JComponent comp, final JInternalFrame f) {
+		if (comp.getBorder() != null) {
+            if (comp.getBorder() instanceof EmptyBorder) {
+                f.setBorder(Utility.blankBorder(10, 10, 10, 10));
+            } else {
+                f.setBorder(comp.getBorder());
+                comp.setBorder(Utility.blankBorder(5, 5, 5, 5));
+            }
+        } else {
+            f.setBorder(null);
+        }
+	}
 
     /**
      * Adds a component centered on this Canvas.
@@ -611,17 +615,12 @@ public final class Canvas extends JDesktopPane {
         if ((comp instanceof FreeColPanel)
             && (p = getSavedPosition(comp)) != null) {
             // Sanity check stuff coming out of client options.
-            if (p.getX() < 0
-                || p.getX() >= getWidth() - width
-                || p.getY() < 0
-                || p.getY() >= getHeight() - height) {
-                p = null;
-            }
+            p = getX(width, height, p);
         }
         int x = 0, y = 0;
         if (p != null) {
-            x = (int)p.getX();
-            y = (int)p.getY();
+            x = xEquals(p);
+            y = yEquals(p);
         } else if (popupPosition != null) {
             switch (popupPosition) {
             case CENTERED:
@@ -649,6 +648,28 @@ public final class Canvas extends JDesktopPane {
         }
         return new Point(x, y);
     }
+
+	public int yEquals(Point p) {
+		int y;
+		y = (int)p.getY();
+		return y;
+	}
+
+	public int xEquals(Point p) {
+		int x;
+		x = (int)p.getX();
+		return x;
+	}
+
+	public Point getX(int width, int height, Point p) {
+		if (p.getX() < 0
+		    || p.getX() >= getWidth() - width
+		    || p.getY() < 0
+		    || p.getY() >= getHeight() - height) {
+		    p = null;
+		}
+		return p;
+	}
 
     /**
      * Create key bindings for all actions.
@@ -736,13 +757,26 @@ public final class Canvas extends JDesktopPane {
                 y0ok = bounds.contains(x, y0 + h),
                 x1ok = bounds.contains(x1, y),
                 y1ok = bounds.contains(x, y1);
-            todo.add(n, new Point((x0ok) ? x0 : (x1ok) ? x1 : x2,
-                                  (y0ok) ? y0 : (y1ok) ? y1 : y2));
-            todo.add(n, new Point(x, (y0ok) ? y0 : (y1ok) ? y1 : y2));
-            todo.add(n, new Point((x0ok) ? x0 : (x1ok) ? x1 : x2, y));
+            toAdd1(todo, n, x0, y0, x1, y1, x2, y2, x0ok, y0ok, x1ok, y1ok);
+            toAdd2(x, todo, n, y0, y1, y2, y0ok, y1ok);
+            toAdd3(y, todo, n, x0, x1, x2, x0ok, x1ok);
         }
         return best;
     }
+
+	public void toAdd3(final int y, List<Point> todo, int n, int x0, int x1, int x2, boolean x0ok, boolean x1ok) {
+		todo.add(n, new Point((x0ok) ? x0 : (x1ok) ? x1 : x2, y));
+	}
+
+	public void toAdd2(final int x, List<Point> todo, int n, int y0, int y1, int y2, boolean y0ok, boolean y1ok) {
+		todo.add(n, new Point(x, (y0ok) ? y0 : (y1ok) ? y1 : y2));
+	}
+
+	public void toAdd1(List<Point> todo, int n, int x0, int y0, int x1, int y1, int x2, int y2, boolean x0ok,
+			boolean y0ok, boolean x1ok, boolean y1ok) {
+		todo.add(n, new Point((x0ok) ? x0 : (x1ok) ? x1 : x2,
+		                      (y0ok) ? y0 : (y1ok) ? y1 : y2));
+	}
 
     /**
      * Gets any currently displayed colony panel for the specified colony.
@@ -1320,7 +1354,19 @@ public final class Canvas extends JDesktopPane {
         }
 
         // Fix up broken/outdated saved sizes
-        if(size.width < sugg.width) {
+        save = whSave(pref, sugg, save, size);
+
+        if(save) {
+            saveSize(comp, size);
+        }
+
+        if (!pref.equals(size)) {
+            comp.setPreferredSize(size);
+        }
+    }
+
+	public boolean whSave(final Dimension pref, final Dimension sugg, boolean save, Dimension size) {
+		if(size.width < sugg.width) {
             size.width = sugg.width;
             save = true;
         }
@@ -1336,15 +1382,8 @@ public final class Canvas extends JDesktopPane {
             size.height = pref.height;
             save = true;
         }
-
-        if(save) {
-            saveSize(comp, size);
-        }
-
-        if (!pref.equals(size)) {
-            comp.setPreferredSize(size);
-        }
-    }
+		return save;
+	}
 
     /**
      * Closes all panels, changes the background and shows the main menu.
@@ -1403,12 +1442,7 @@ public final class Canvas extends JDesktopPane {
             // Grey out the map if it is not my turn (and a multiplayer game).
             if (!freeColClient.isMapEditor() && freeColClient.getGame() != null
                     && !freeColClient.currentPlayerIsMyPlayer()) {
-                if (greyLayer == null) {
-                    greyLayer = new GrayLayer(freeColClient);
-                }
-                if (greyLayer.getParent() == null) {
-                    add(greyLayer, JLayeredPane.DRAG_LAYER);
-                }
+                getGreyLayer();
                 greyLayer.setBounds(0, 0, size.width, size.height);
                 greyLayer.setPlayer(freeColClient.getGame().getCurrentPlayer());
             } else {
@@ -1427,32 +1461,7 @@ public final class Canvas extends JDesktopPane {
                 //       ingame and end up here after clicking outside map.
 
                 final String bgImageKey = "image.flavor.Canvas.map";
-                if (ResourceManager.hasImageResource(bgImageKey)) {
-                    // Get the background without scaling, to avoid wasting
-                    // memory needlessly keeping an unbounded number of rescaled
-                    // versions of the largest image in FreeCol, forever.
-                    final Image bgImage = ResourceManager.getImage(bgImageKey);
-                    // Draw background image with scaling.
-                    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-                        RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    g2d.drawImage(bgImage, 0, 0, size.width, size.height, this);
-                    String versionStr = "v. " + FreeCol.getVersion();
-                    Font oldFont = g2d.getFont();
-                    Color oldColor = g2d.getColor();
-                    Font newFont = oldFont.deriveFont(Font.BOLD);
-                    TextLayout layout = new TextLayout(versionStr, newFont,
-                        g2d.getFontRenderContext());
-                    Rectangle2D bounds = layout.getBounds();
-                    float x = size.width - (float) bounds.getWidth() - 5;
-                    float y = size.height - (float) bounds.getHeight();
-                    g2d.setColor(Color.white);
-                    layout.draw(g2d, x, y);
-                    g2d.setFont(oldFont);
-                    g2d.setColor(oldColor);
-                } else {
-                    g2d.setColor(Color.BLACK);
-                    g2d.fillRect(0, 0, size.width, size.height);
-                }
+                unfocusCheck(g2d, size, bgImageKey);
 
             } else {
                 /* map editor??? */
@@ -1461,6 +1470,44 @@ public final class Canvas extends JDesktopPane {
             }
         }
     }
+
+	public void unfocusCheck(Graphics2D g2d, Dimension size, final String bgImageKey) {
+		if (ResourceManager.hasImageResource(bgImageKey)) {
+		    // Get the background without scaling, to avoid wasting
+		    // memory needlessly keeping an unbounded number of rescaled
+		    // versions of the largest image in FreeCol, forever.
+		    final Image bgImage = ResourceManager.getImage(bgImageKey);
+		    // Draw background image with scaling.
+		    g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+		        RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		    g2d.drawImage(bgImage, 0, 0, size.width, size.height, this);
+		    String versionStr = "v. " + FreeCol.getVersion();
+		    Font oldFont = g2d.getFont();
+		    Color oldColor = g2d.getColor();
+		    Font newFont = oldFont.deriveFont(Font.BOLD);
+		    TextLayout layout = new TextLayout(versionStr, newFont,
+		        g2d.getFontRenderContext());
+		    Rectangle2D bounds = layout.getBounds();
+		    float x = size.width - (float) bounds.getWidth() - 5;
+		    float y = size.height - (float) bounds.getHeight();
+		    g2d.setColor(Color.white);
+		    layout.draw(g2d, x, y);
+		    g2d.setFont(oldFont);
+		    g2d.setColor(oldColor);
+		} else {
+		    g2d.setColor(Color.BLACK);
+		    g2d.fillRect(0, 0, size.width, size.height);
+		}
+	}
+
+	public void getGreyLayer() {
+		if (greyLayer == null) {
+		    greyLayer = new GrayLayer(freeColClient);
+		}
+		if (greyLayer.getParent() == null) {
+		    add(greyLayer, JLayeredPane.DRAG_LAYER);
+		}
+	}
 
 
     // Override Container
