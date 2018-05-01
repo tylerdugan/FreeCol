@@ -185,20 +185,7 @@ public class BuildQueuePanel extends FreeColPanel implements ItemListener {
 
             // What actual panel component was chosen?
             JList<? extends BuildableType> target = BuildQueuePanel.this.convertJComp(comp);
-            if (target == null) {
-                logger.warning("Build queue import failed to: " + comp);
-                return false;
-            }
-
-            // Grab the transfer object and insist it is a list of something.
-            Object transferData;
-            try {
-                transferData = data.getTransferData(BUILD_LIST_FLAVOR);
-            } catch (UnsupportedFlavorException | IOException e) {
-                logger.log(Level.WARNING, "BuildQueue import", e);
-                return false;
-            }
-            if (!(transferData instanceof List<?>)) return false;
+            Object transferData = chosenPanel(comp, data, target);
 
             // Collect the transferred buildables.
             final JList<BuildableType> bql
@@ -319,6 +306,24 @@ public class BuildQueuePanel extends FreeColPanel implements ItemListener {
             }
             return true;
         }
+
+		public Object chosenPanel(JComponent comp, Transferable data, JList<? extends BuildableType> target) {
+			if (target == null) {
+                logger.warning("Build queue import failed to: " + comp);
+                return false;
+            }
+
+            // Grab the transfer object and insist it is a list of something.
+            Object transferData;
+            try {
+                transferData = data.getTransferData(BUILD_LIST_FLAVOR);
+            } catch (UnsupportedFlavorException | IOException e) {
+                logger.log(Level.WARNING, "BuildQueue import", e);
+                return false;
+            }
+            if (!(transferData instanceof List<?>)) return false;
+			return transferData;
+		}
 
         /**
          * {@inheritDoc}
