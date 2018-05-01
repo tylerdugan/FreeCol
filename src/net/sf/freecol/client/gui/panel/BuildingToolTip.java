@@ -69,25 +69,9 @@ public class BuildingToolTip extends JToolTip {
         final GoodsType output = (outputs.isEmpty()) ? null
             : outputs.get(0).getType();
 
-        if (arrow == null) {
-            arrow = new JLabel(ResourceManager.getString("arrow.E"));
-            arrow.setFont(FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
-                FontLibrary.FontSize.SMALL, Font.BOLD, lib.getScaleFactor()));
-        }
+        arrowNull(lib);
 
-        String columns = "[align center]";
-        for (int index = 0; index < workplaces; index++) {
-            columns += "20[]5[]";
-        }
-
-        MigLayout layout = new MigLayout("fill, insets 20, wrap "
-            + (2 * workplaces + 1), columns, "[][][align bottom]");
-        setLayout(layout);
-
-        JLabel buildingName = new JLabel(Messages.getName(building));
-        buildingName.setFont(FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
-            FontLibrary.FontSize.SMALLER, Font.BOLD, lib.getScaleFactor()));
-        add(buildingName, "span");
+        MigLayout layout = buildSpan(building, lib, workplaces);
 
         ProductionInfo info = building.getProductionInfo();
         AbstractGoods production
@@ -131,7 +115,93 @@ public class BuildingToolTip extends JToolTip {
 
         add(new JLabel(new ImageIcon(lib.getBuildingImage(building))));
 
-        for (Unit unit : building.getUnitList()) {
+        trainingMod(freeColClient, building, output);
+
+        int diff = building.getUnitCapacity() - building.getUnitCount();
+        for (int index = 0; index < diff; index++) {
+            add(new JLabel(new ImageIcon(
+                lib.getMiscImage("image.unit.placeholder"))), "span 2");
+        }
+
+        int breedingNumber = (output == null) ? GoodsType.INFINITY
+            : output.getBreedingNumber();
+        breedingNumber(building, output, breedingNumber);
+
+        modDebug(building, game, output);
+
+        setPreferredSize(layout.preferredLayoutSize(this));
+    }
+
+
+	public void arrowNull(final ImageLibrary lib) {
+		if (arrow == null) {
+            arrow = new JLabel(ResourceManager.getString("arrow.E"));
+            arrow.setFont(FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
+                FontLibrary.FontSize.SMALL, Font.BOLD, lib.getScaleFactor()));
+        }
+	}
+
+
+	public void modDebug(Building building, final Game game, final GoodsType output) {
+		if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS)) {
+            List<Modifier> modifiers = new ArrayList<>();
+            if (output != null) {
+                modifiers.addAll(building.getProductionModifiers(output, null));
+            }
+            modCollector(game, modifiers);
+        }
+	}
+
+
+	public void breedingNumber(Building building, final GoodsType output, int breedingNumber) {
+		if (breedingNumber < GoodsType.INFINITY
+            && breedingNumber > building.getColony().getGoodsCount(output)) {
+            add(Utility.localizedLabel(StringTemplate
+                    .template("buildingToolTip.breeding")
+                    .addAmount("%number%", breedingNumber)
+                    .addNamed("%goods%", output)));
+        }
+	}
+
+
+	public MigLayout buildSpan(Building building, final ImageLibrary lib, final int workplaces) {
+		String columns = "[align center]";
+        for (int index = 0; index < workplaces; index++) {
+            columns += "20[]5[]";
+        }
+
+        MigLayout layout = new MigLayout("fill, insets 20, wrap "
+            + (2 * workplaces + 1), columns, "[][][align bottom]");
+        setLayout(layout);
+
+        JLabel buildingName = new JLabel(Messages.getName(building));
+        buildingName.setFont(FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
+            FontLibrary.FontSize.SMALLER, Font.BOLD, lib.getScaleFactor()));
+        add(buildingName, "span");
+		return layout;
+	}
+
+
+	public void modCollector(final Game game, List<Modifier> modifiers) {
+		Collections.sort(modifiers);
+		for (Modifier m : modifiers) {
+		    JLabel[] mLabels = ModifierFormat.getModifierLabels(m, null,
+		            game.getTurn());
+		    for (int i = 0; i < mLabels.length; i++) {
+		        if (mLabels[i] != null) {
+		            if (i == 0) {
+		                add(mLabels[i],"newline");
+		            } else {
+		                add(mLabels[i]);
+		            }
+		        }
+		    }
+		}
+	}
+
+
+	public void trainingMod(FreeColClient freeColClient, Building building, final GoodsType output) {
+		for (Unit unit : building.getUnitList()) {
             UnitLabel unitLabel = new UnitLabel(freeColClient, unit, false);
             int amount = building.getUnitProduction(unit, output);
             if (amount > 0) {
@@ -153,46 +223,7 @@ public class BuildingToolTip extends JToolTip {
                 add(unitLabel, "span 2");
             }
         }
-
-        int diff = building.getUnitCapacity() - building.getUnitCount();
-        for (int index = 0; index < diff; index++) {
-            add(new JLabel(new ImageIcon(
-                lib.getMiscImage("image.unit.placeholder"))), "span 2");
-        }
-
-        int breedingNumber = (output == null) ? GoodsType.INFINITY
-            : output.getBreedingNumber();
-        if (breedingNumber < GoodsType.INFINITY
-            && breedingNumber > building.getColony().getGoodsCount(output)) {
-            add(Utility.localizedLabel(StringTemplate
-                    .template("buildingToolTip.breeding")
-                    .addAmount("%number%", breedingNumber)
-                    .addNamed("%goods%", output)));
-        }
-
-        if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.MENUS)) {
-            List<Modifier> modifiers = new ArrayList<>();
-            if (output != null) {
-                modifiers.addAll(building.getProductionModifiers(output, null));
-            }
-            Collections.sort(modifiers);
-            for (Modifier m : modifiers) {
-                JLabel[] mLabels = ModifierFormat.getModifierLabels(m, null,
-                        game.getTurn());
-                for (int i = 0; i < mLabels.length; i++) {
-                    if (mLabels[i] != null) {
-                        if (i == 0) {
-                            add(mLabels[i],"newline");
-                        } else {
-                            add(mLabels[i]);
-                        }
-                    }
-                }
-            }
-        }
-
-        setPreferredSize(layout.preferredLayoutSize(this));
-    }
+	}
 
 
     // Override Component

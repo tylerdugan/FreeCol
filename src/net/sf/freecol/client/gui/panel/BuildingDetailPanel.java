@@ -139,7 +139,159 @@ public class BuildingDetailPanel
         JTextPane textPane = Utility.getDefaultTextPane();
         StyledDocument doc = textPane.getStyledDocument();
 
-        try {
+        jPanel(panel, buildingType, textPane, doc);
+
+        // Costs to build - Hammers & Tools
+        buildCost(panel, buildingType);
+
+        // Production - Needs & Produces
+        if (buildingType.hasAbility(Ability.TEACH)) {
+            panel.add(Utility.localizedLabel("colopedia.buildings.teaches"), "newline, top");
+            int count = 0;
+            for (UnitType unitType2 : getSpecification().getUnitTypeList()) {
+                count = addUnitType(panel, buildingType, count, unitType2);
+            }
+
+        } else {
+            getInputs(panel, buildingType);
+        }
+
+        int workplaces = buildingType.getWorkPlaces();
+        panel.add(Utility.localizedLabel("colopedia.buildings.workplaces"), "newline");
+        panel.add(new JLabel(Integer.toString(workplaces)), "span");
+
+        // Specialist
+        panelsAdded(panel, buildingType, workplaces);
+
+        List<JComponent> labels = new ArrayList<>();
+        getMod(buildingType, labels);
+
+        for (Ability ability : buildingType.getAbilities()) {
+            JComponent component = getAbilityComponent(ability);
+            if (component != null) {
+                labels.add(component);
+            }
+        }
+
+        if (!labels.isEmpty()) {
+            panel.add(Utility.localizedLabel(StringTemplate
+                    .template("colopedia.buildings.modifiers")
+                    .addAmount("%number%", labels.size())),
+                "newline, top");
+            compCount(panel, labels);
+        }
+
+        // Notes
+        panel.add(Utility.localizedLabel("colopedia.buildings.notes"),
+                  "newline 20, top");
+        panel.add(Utility.localizedTextArea(Messages.descriptionKey(buildingType)),
+                  "span, growx");
+    }
+
+
+	public void compCount(JPanel panel, List<JComponent> labels) {
+		int count = 0;
+		for (JComponent component : labels) {
+		    if (count > 0 && count % 2 == 0) {
+		        panel.add(component, "skip, span 3");
+		    } else {
+		        panel.add(component, "span 3");
+		    }
+		    count++;
+		}
+	}
+
+
+	public void getMod(BuildingType buildingType, List<JComponent> labels) {
+		for (Modifier productionBonus : buildingType.getModifiers()) {
+            JComponent component = getModifierComponent(productionBonus);
+            if (component instanceof JButton) {
+                labels.add(0, component);
+            } else {
+                labels.add(component);
+            }
+        }
+	}
+
+
+	public void getInputs(JPanel panel, BuildingType buildingType) {
+		for (ProductionType pt
+		         : buildingType.getAvailableProductionTypes(false)) {
+		    List<AbstractGoods> inputs = pt.getInputs();
+		    List<AbstractGoods> outputs = pt.getOutputs();
+		    panel.add(Utility.localizedLabel("colopedia.buildings.production"), "newline");
+		    // for the moment, we assume only a single input
+		    // and output type
+		    ifEmpytInput(panel, inputs);
+		    if (!outputs.isEmpty()) {
+		        panel.add(getGoodsButton(outputs.get(0)));
+		    }
+		}
+	}
+
+
+	public int addUnitType(JPanel panel, BuildingType buildingType, int count, UnitType unitType2) {
+		if (buildingType.canAdd(unitType2)) {
+		    if (count > 0 && count % 3 == 0) {
+		        panel.add(getButton(unitType2), "skip, span 2");
+		    } else {
+		        panel.add(getButton(unitType2), "span 2");
+		    }
+		    count++;
+		}
+		return count;
+	}
+
+
+	public void panelsAdded(JPanel panel, BuildingType buildingType, int workplaces) {
+		if (workplaces > 0) {
+            panel.add(Utility.localizedLabel("colopedia.buildings.specialist"), "newline");
+            final UnitType unitType = getSpecification()
+                .getExpertForProducing(buildingType.getProducedGoodsType());
+            if (unitType == null) {
+                panel.add(Utility.localizedLabel("none"), "span");
+            } else {
+                panel.add(getUnitButton(unitType), "span");
+            }
+        }
+	}
+
+
+	public void ifEmpytInput(JPanel panel, List<AbstractGoods> inputs) {
+		if (!inputs.isEmpty()) {
+		    panel.add(getGoodsButton(inputs.get(0)), "span, split 3");
+		    JLabel arrow = new JLabel("\u2192");
+		    arrow.setFont(FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
+		        FontLibrary.FontSize.SMALL, Font.BOLD));
+		    panel.add(arrow);
+		}
+	}
+
+
+	public void buildCost(JPanel panel, BuildingType buildingType) {
+		panel.add(Utility.localizedLabel("colopedia.buildings.cost"));
+        if (!buildingType.needsGoodsToBuild()) {
+            panel.add(Utility.localizedLabel("colopedia.buildings.autoBuilt"), "span");
+        } else {
+            List<AbstractGoods> required = buildingType.getRequiredGoods();
+            AbstractGoods goodsRequired = required.get(0);
+            if (required.size() > 1) {
+                panel.add(getGoodsButton(goodsRequired.getType(), goodsRequired.getAmount()),
+                                "span, split " + required.size());
+
+                for (int index = 1; index < required.size(); index++) {
+                    goodsRequired = required.get(index);
+                    panel.add(getGoodsButton(goodsRequired.getType(), goodsRequired.getAmount()));
+                }
+            } else {
+                panel.add(getGoodsButton(goodsRequired.getType(), goodsRequired.getAmount()), "span");
+            }
+        }
+	}
+
+
+	public void jPanel(JPanel panel, BuildingType buildingType, JTextPane textPane, StyledDocument doc) {
+		try {
             if (buildingType.getUpgradesFrom() != null) {
                 StyleConstants.setComponent(doc.getStyle("button"), getButton(buildingType.getUpgradesFrom()));
                 doc.insertString(doc.getLength(), " ", doc.getStyle("button"));
@@ -159,116 +311,5 @@ public class BuildingDetailPanel
         } catch (BadLocationException e) {
             //logger.warning(e.toString());
         }
-
-        // Costs to build - Hammers & Tools
-        panel.add(Utility.localizedLabel("colopedia.buildings.cost"));
-        if (!buildingType.needsGoodsToBuild()) {
-            panel.add(Utility.localizedLabel("colopedia.buildings.autoBuilt"), "span");
-        } else {
-            List<AbstractGoods> required = buildingType.getRequiredGoods();
-            AbstractGoods goodsRequired = required.get(0);
-            if (required.size() > 1) {
-                panel.add(getGoodsButton(goodsRequired.getType(), goodsRequired.getAmount()),
-                                "span, split " + required.size());
-
-                for (int index = 1; index < required.size(); index++) {
-                    goodsRequired = required.get(index);
-                    panel.add(getGoodsButton(goodsRequired.getType(), goodsRequired.getAmount()));
-                }
-            } else {
-                panel.add(getGoodsButton(goodsRequired.getType(), goodsRequired.getAmount()), "span");
-            }
-        }
-
-        // Production - Needs & Produces
-        if (buildingType.hasAbility(Ability.TEACH)) {
-            panel.add(Utility.localizedLabel("colopedia.buildings.teaches"), "newline, top");
-            int count = 0;
-            for (UnitType unitType2 : getSpecification().getUnitTypeList()) {
-                if (buildingType.canAdd(unitType2)) {
-                    if (count > 0 && count % 3 == 0) {
-                        panel.add(getButton(unitType2), "skip, span 2");
-                    } else {
-                        panel.add(getButton(unitType2), "span 2");
-                    }
-                    count++;
-                }
-            }
-
-        } else {
-            for (ProductionType pt
-                     : buildingType.getAvailableProductionTypes(false)) {
-                List<AbstractGoods> inputs = pt.getInputs();
-                List<AbstractGoods> outputs = pt.getOutputs();
-                panel.add(Utility.localizedLabel("colopedia.buildings.production"), "newline");
-                // for the moment, we assume only a single input
-                // and output type
-                if (!inputs.isEmpty()) {
-                    panel.add(getGoodsButton(inputs.get(0)), "span, split 3");
-                    JLabel arrow = new JLabel("\u2192");
-                    arrow.setFont(FontLibrary.createFont(FontLibrary.FontType.SIMPLE,
-                        FontLibrary.FontSize.SMALL, Font.BOLD));
-                    panel.add(arrow);
-                }
-                if (!outputs.isEmpty()) {
-                    panel.add(getGoodsButton(outputs.get(0)));
-                }
-            }
-        }
-
-        int workplaces = buildingType.getWorkPlaces();
-        panel.add(Utility.localizedLabel("colopedia.buildings.workplaces"), "newline");
-        panel.add(new JLabel(Integer.toString(workplaces)), "span");
-
-        // Specialist
-        if (workplaces > 0) {
-            panel.add(Utility.localizedLabel("colopedia.buildings.specialist"), "newline");
-            final UnitType unitType = getSpecification()
-                .getExpertForProducing(buildingType.getProducedGoodsType());
-            if (unitType == null) {
-                panel.add(Utility.localizedLabel("none"), "span");
-            } else {
-                panel.add(getUnitButton(unitType), "span");
-            }
-        }
-
-        List<JComponent> labels = new ArrayList<>();
-        for (Modifier productionBonus : buildingType.getModifiers()) {
-            JComponent component = getModifierComponent(productionBonus);
-            if (component instanceof JButton) {
-                labels.add(0, component);
-            } else {
-                labels.add(component);
-            }
-        }
-
-        for (Ability ability : buildingType.getAbilities()) {
-            JComponent component = getAbilityComponent(ability);
-            if (component != null) {
-                labels.add(component);
-            }
-        }
-
-        if (!labels.isEmpty()) {
-            panel.add(Utility.localizedLabel(StringTemplate
-                    .template("colopedia.buildings.modifiers")
-                    .addAmount("%number%", labels.size())),
-                "newline, top");
-            int count = 0;
-            for (JComponent component : labels) {
-                if (count > 0 && count % 2 == 0) {
-                    panel.add(component, "skip, span 3");
-                } else {
-                    panel.add(component, "span 3");
-                }
-                count++;
-            }
-        }
-
-        // Notes
-        panel.add(Utility.localizedLabel("colopedia.buildings.notes"),
-                  "newline 20, top");
-        panel.add(Utility.localizedTextArea(Messages.descriptionKey(buildingType)),
-                  "span, growx");
-    }
+	}
 }
