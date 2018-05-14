@@ -86,7 +86,7 @@ public class Game extends FreeColGameObject {
 //    		String filepath = "..\\..\\data\\rules\\classic\\specifications.xml";
 //    		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
 //    		DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
-//    		Document doc = docBuilder.parse(filepath);
+//    		Document doc = docBuilder.parse(filepath);;
 //    		
 //    		// Get the root element
 //    		Node freecolspec = doc.getFirstChild();
