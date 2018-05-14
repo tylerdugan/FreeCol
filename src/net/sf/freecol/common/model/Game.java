@@ -48,6 +48,23 @@ import net.sf.freecol.common.util.Utils;
 
 import org.w3c.dom.Element;
 
+import java.io.File;
+import java.io.IOException;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
 
 /**
  * The main component of the game model.
@@ -62,6 +79,29 @@ public class Game extends FreeColGameObject {
         VALID,
         CONSUMED,
     };
+    
+    //ADDED FEATURE - UNLIMITED GOODS IF SPANISH
+//    public static void spanishCheat() {
+//    	try {
+//    		String filepath = "..\\..\\data\\rules\\classic\\specifications.xml";
+//    		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+//    		DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+//    		Document doc = docBuilder.parse(filepath);
+//    		
+//    		// Get the root element
+//    		Node freecolspec = doc.getFirstChild();
+//    		Node goods = doc.getElementsByTagName("goods-types").item(0);
+//    		
+//    		// update goods attribute
+//    		NamedNodeMap attr = goods.getAttributes();
+//    		Node nodeAttr = attr.getNamedItem("model.goods.food");
+//    		nodeAttr.setTextContent("2");
+//    		
+//
+//	    }catch(Exception e){
+//	    	
+//	    }
+//    }
 
     /** Map of all classes with corresponding server classes. */
     private static final java.util.Map<Class<? extends FreeColObject>,
