@@ -94,7 +94,7 @@ public class Game extends FreeColGameObject {
 //    		
 //    		// update goods attribute
 //    		NamedNodeMap attr = goods.getAttributes();
-//    		Node nodeAttr = attr.getNamedItem("model.goods.food");
+//    		Node nodeAttr = attr.getNamedItem("model.goods.food");;
 //    		nodeAttr.setTextContent("2");
 //    		
 //
