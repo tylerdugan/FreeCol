@@ -3,13 +3,13 @@ package net.sf.freecol.common.model;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.StringWriter;
-import java.io.Writer;
+import java.io.Writer;     
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import javax.imageio.metadata.IIOMetadataNode;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import org.junit.*;
 import static org.junit.Assert.*;
-import org.w3c.dom.Element;
+import org.w3c.dom.Element; 
 
 /**
  * The class <code>PlayerExploredTileTest</code> contains tests for the class <code>{@link PlayerExploredTile}</code>.
